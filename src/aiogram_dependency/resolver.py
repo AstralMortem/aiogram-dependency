@@ -10,6 +10,9 @@ class DependencyResolver:
         self.registry = registry
         self._resolving: set = set()
 
+        self.active_contexts = {}  # Track active context managers
+        self.cleanup_tasks = []  # Track cleanup tasks
+
     async def resolve_dependencies(self, event: TelegramObject, data: Dict[str, Any]):
         # Callable stored in HandlerObject dataclass, which in `data` dict;
         # Try to get callable
@@ -87,8 +90,23 @@ class DependencyResolver:
             # After resolving kwargs, call dpendency callable with proper kwargs
             if inspect.iscoroutinefunction(dep):
                 resolved_value = await dep(**dep_kwargs)
+            elif inspect.isasyncgenfunction(dep):
+                resolved_value = await self._handle_async_generator(
+                    dep, cache_key, **dep_kwargs
+                )
+            elif inspect.isgeneratorfunction(dep):
+                resolved_value = self._handle_generator(dep, cache_key, **dep_kwargs)
             else:
                 resolved_value = dep(**dep_kwargs)
+
+                if self._is_sync_contextmanager(resolved_value):
+                    resolved_value = self._handle_sync_context_manager(
+                        resolved_value, cache_key
+                    )
+                elif self._is_async_contextmanager(resolved_value):
+                    resolved_value = await self._handle_async_context_manager(
+                        resolved_value, cache_key
+                    )
 
             # update registry cache
             self.registry.set_dependency(dep, resolved_value, scope, cache_key)
@@ -96,7 +114,74 @@ class DependencyResolver:
 
         finally:
             # Remove resolving lock
+            await self._cleanup_active_context()
             self._resolving.discard(dep)
+
+    def _handle_sync_context_manager(self, context_manager: Any, key: str) -> Any:
+        resolved_value = context_manager.__enter__()
+        self.active_contexts[key] = context_manager
+        return resolved_value
+
+    async def _handle_async_context_manager(
+        self, context_manager: Any, key: str
+    ) -> Any:
+        resolved_value = await context_manager.__aenter__()
+        self.active_contexts[key] = context_manager
+        return resolved_value
+
+    async def _handle_async_generator(self, dep: Callable, key, **kwargs):
+        async_gen = dep(**kwargs)
+        try:
+            value = await async_gen.__anext__()
+            self.active_contexts[key] = async_gen
+            return value
+        except StopAsyncIteration:
+            # Log Error
+            return None
+
+    def _handle_generator(self, dep: Callable, key, **kwargs):
+        gen = dep(**kwargs)
+        try:
+            value = next(gen)
+            self.active_contexts[key] = gen
+            return value
+        except StopIteration:
+            # Log error
+            return None
+
+    async def _cleanup_active_context(self):
+        errors = []
+        for dep_name, context in list(self.active_contexts.items()):
+            try:
+                if inspect.isasyncgen(context):
+                    try:
+                        await context.__anext__()
+                    except StopAsyncIteration:
+                        pass
+
+                elif inspect.isgenerator(context):
+                    try:
+                        next(context)
+                    except StopIteration:
+                        pass
+                elif hasattr(context, "__aexit__"):
+                    await context.__aexit__(None, None, None)
+
+                elif hasattr(context, "__exit__"):
+                    context.__exit__(None, None, None)
+
+                del self.active_contexts[dep_name]
+            except Exception as e:
+                errors.append(f"Error cleaning up {dep_name}: {e}")
+
+        if errors:
+            print(f"Cleanup completed with {len(errors)} errors")
+
+    def _is_sync_contextmanager(self, value) -> bool:
+        return hasattr(value, "__enter__") and hasattr(value, "__exit__")
+
+    def _is_async_contextmanager(self, value) -> bool:
+        return hasattr(value, "__aenter__") and hasattr(value, "__aexit__")
 
     def _get_dependency_from_param(self, param: inspect.Parameter) -> Dependency:
         # Extract Dependency class from Annotated or param.default

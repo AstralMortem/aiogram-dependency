@@ -1,18 +1,65 @@
+from contextlib import asynccontextmanager, contextmanager
 from unittest.mock import AsyncMock
 import pytest
 from aiogram.types import Message
 from aiogram_dependency.dependency import Depends
 
 
-@pytest.mark.asyncio
-async def test_middleware_injects_dependencies(middleware, mock_message, mock_data):
-    def get_test_service():
-        return "injected_service"
+def get_sync_dep():
+    return "injected_service"
 
+
+def get_sync_generator():
+    try:
+        yield "injected_service"
+    finally:
+        pass
+
+
+async def get_async_dep():
+    return "injected_service"
+
+
+async def get_async_generator():
+    try:
+        yield "injected_service"
+    finally:
+        pass
+
+
+@contextmanager
+def get_sync_contextmanager():
+    try:
+        yield "injected_service"
+    finally:
+        pass
+
+
+@asynccontextmanager
+async def get_async_contextmanager():
+    try:
+        yield "injected_service"
+    finally:
+        pass
+
+
+@pytest.mark.parametrize(
+    "dependency",
+    (
+        get_sync_dep,
+        get_sync_generator,
+        get_async_dep,
+        get_async_generator,
+        get_sync_contextmanager,
+        get_async_contextmanager,
+    ),
+)
+@pytest.mark.asyncio
+async def test_dependency_types(dependency, middleware, mock_message, mock_data):
     # Create handler mock
     handler = AsyncMock()
 
-    async def test_handler(event: Message, service: str = Depends(get_test_service)):
+    async def test_handler(event: Message, service: str = Depends(dependency)):
         await handler(event, service)
         return "handler_result"
 

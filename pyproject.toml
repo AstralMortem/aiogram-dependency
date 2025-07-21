@@ -1,6 +1,6 @@
 [project]
 name = "aiogram-dependency"
-version = "1.0.0"
+version = "1.0.1"
 description = "A FastAPI-style dependency injection system for aiogram Telegram bots. This library brings clean, type-safe dependency injection to your aiogram handlers, making your code more modular, testable, and maintainable."
 authors = [
     {name = "Vladyslav Chaliuk",email = "chaliukvladyslav@gmail.com"}
