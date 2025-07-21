@@ -1,0 +1,28 @@
+[project]
+name = "aiogram-dependency"
+version = "1.0.0"
+description = "A FastAPI-style dependency injection system for aiogram Telegram bots. This library brings clean, type-safe dependency injection to your aiogram handlers, making your code more modular, testable, and maintainable."
+authors = [
+    {name = "Vladyslav Chaliuk",email = "chaliukvladyslav@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11, <4.0"
+dependencies = [
+    "aiogram (>=3.21.0,<4.0.0)",
+]
+
+[tool.poetry]
+packages = [{include = "aiogram_dependency", from = "src"}]
+
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.4.1"
+pytest-asyncio = "^1.1.0"
+
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.12.4"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
