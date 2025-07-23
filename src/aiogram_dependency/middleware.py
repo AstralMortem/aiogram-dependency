@@ -1,3 +1,4 @@
+from contextlib import AsyncExitStack
 from aiogram.dispatcher.middlewares.base import BaseMiddleware
 from typing import Callable, Dict, Any, Awaitable, Optional
 from aiogram.types import TelegramObject
@@ -17,6 +18,9 @@ class DependencyMiddleware(BaseMiddleware):
         data: Dict[str, Any],
     ):
         # Resolve dependencies and update data dict
-        resolved_deps = await self.resolver.resolve_dependencies(event, data)
-        data.update(resolved_deps)
-        return await handler(event, data)
+        async with AsyncExitStack() as async_exit_stac:
+            resolved_deps = await self.resolver.resolve_dependencies(
+                event, data, async_exit_stac
+            )
+            data.update(resolved_deps)
+            return await handler(event, data)

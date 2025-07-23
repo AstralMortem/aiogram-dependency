@@ -28,19 +28,23 @@ async def get_async_generator():
 
 
 @contextmanager
-def get_sync_contextmanager():
-    try:
-        yield "injected_service"
-    finally:
-        pass
+def _sync_contextmanager():
+    yield "injected_service"
 
 
 @asynccontextmanager
+async def _async_contextmanager():
+    yield "injected_service"
+
+
+def get_sync_contextmanager():
+    with _sync_contextmanager() as cm:
+        yield cm
+
+
 async def get_async_contextmanager():
-    try:
-        yield "injected_service"
-    finally:
-        pass
+    async with _async_contextmanager() as cm:
+        yield cm
 
 
 @pytest.mark.parametrize(

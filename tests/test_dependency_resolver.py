@@ -1,6 +1,7 @@
 import pytest
 from aiogram.types import Message
 from aiogram_dependency.dependency import Depends, Scope
+from contextlib import AsyncExitStack
 
 
 @pytest.mark.asyncio
@@ -14,7 +15,10 @@ async def test_resolve_simple_dependency(resolver, mock_message, mock_data):
     # Inject callable to data handler.
     setattr(mock_data["handler"], "callback", test_handler)
 
-    resolved = await resolver.resolve_dependencies(mock_message, mock_data)
+    async with AsyncExitStack() as exit_stack:
+        resolved = await resolver.resolve_dependencies(
+            mock_message, mock_data, exit_stack
+        )
     print(resolved)
     assert resolved["service"] == "test_service"
 
@@ -35,8 +39,10 @@ async def test_resolve_nested_dependencies(resolver, mock_message, mock_data):
 
     # Inject callable to data handler.
     setattr(mock_data["handler"], "callback", test_handler)
-
-    resolved = await resolver.resolve_dependencies(mock_message, mock_data)
+    async with AsyncExitStack() as exit_stack:
+        resolved = await resolver.resolve_dependencies(
+            mock_message, mock_data, exit_stack
+        )
 
     assert resolved["user_service"] == "user_service_with_database_connection"
 
@@ -86,9 +92,14 @@ async def test_dependency_caching_singleton(resolver, mock_message, mock_data):
     # Inject callable to data handler.
     setattr(mock_data["handler"], "callback", test_handler)
 
-    # Resolve twice
-    resolved1 = await resolver.resolve_dependencies(mock_message, mock_data)
-    resolved2 = await resolver.resolve_dependencies(mock_message, mock_data)
+    async with AsyncExitStack() as exit_stack:
+        # Resolve twice
+        resolved1 = await resolver.resolve_dependencies(
+            mock_message, mock_data, exit_stack
+        )
+        resolved2 = await resolver.resolve_dependencies(
+            mock_message, mock_data, exit_stack
+        )
 
     # Should be called only once due to singleton caching
     assert call_count == 1
@@ -112,9 +123,14 @@ async def test_dependency_caching_request(resolver, mock_message, mock_data):
     # Inject callable to data handler.
     setattr(mock_data["handler"], "callback", test_handler)
 
-    # Resolve twice with same message (same cache key)
-    resolved1 = await resolver.resolve_dependencies(mock_message, mock_data)
-    resolved2 = await resolver.resolve_dependencies(mock_message, mock_data)
+    async with AsyncExitStack() as exit_stack:
+        # Resolve twice with same message (same cache key)
+        resolved1 = await resolver.resolve_dependencies(
+            mock_message, mock_data, exit_stack
+        )
+        resolved2 = await resolver.resolve_dependencies(
+            mock_message, mock_data, exit_stack
+        )
 
     # Should be called only once due to request caching
     assert call_count == 1
@@ -139,9 +155,14 @@ async def test_dependency_no_caching_transient(resolver, mock_message, mock_data
     # Inject callable to data handler.
     setattr(mock_data["handler"], "callback", test_handler)
 
-    # Resolve twice
-    resolved1 = await resolver.resolve_dependencies(mock_message, mock_data)
-    resolved2 = await resolver.resolve_dependencies(mock_message, mock_data)
+    async with AsyncExitStack() as exit_stack:
+        # Resolve twice
+        resolved1 = await resolver.resolve_dependencies(
+            mock_message, mock_data, exit_stack
+        )
+        resolved2 = await resolver.resolve_dependencies(
+            mock_message, mock_data, exit_stack
+        )
 
     # Should be called twice (no caching)
     assert call_count == 2

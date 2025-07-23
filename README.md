@@ -2,6 +2,7 @@
 
 A FastAPI-style dependency injection system for aiogram Telegram bots. This library brings clean, type-safe dependency injection to your aiogram handlers, making your code more modular, testable, and maintainable.
 
+[![PyPI Downloads](https://static.pepy.tech/badge/aiogram-dependency)](https://pepy.tech/projects/aiogram-dependency)
 ## Features
 
 - 🚀 **FastAPI-style syntax** - Familiar `Depends()` decorator
