@@ -1,5 +1,5 @@
 import pytest
-from aiogram_dependency.dependency import Scope
+from aiogram_dependency.dependency import Depends, Scope
 from aiogram.types import User, Chat, Message
 from unittest.mock import Mock
 
@@ -39,7 +39,7 @@ def empty_message():
     ],
 )
 def test_cache_generation_with_params(messages, key, registry):
-    cache_key = registry.get_cache_key(messages, {})
+    cache_key = registry.get_cache_key(messages)
     assert cache_key == key
 
 
@@ -55,8 +55,10 @@ def test_cache_storage_and_retrieval(value, cache_key, scope, registry):
     def dummy_dep():
         return str(scope)
 
-    registry.set_dependency(dummy_dep, value, scope, cache_key)
-    retrived = registry.get_dependency(dummy_dep, scope, cache_key)
+    dependency: str = Depends(dummy_dep, scope=scope)
+
+    registry.set_dependency(dependency, value, cache_key)
+    retrived = registry.get_dependency(dependency, cache_key)
     assert retrived == value
 
 
@@ -64,11 +66,13 @@ def test_request_cache_isolation(registry):
     def dummy_dep():
         return "request_value"
 
+    dependency = Depends(dummy_dep, scope=Scope.REQUEST)
+
     value1 = "value_for_user_1"
     value2 = "value_for_user_2"
 
-    registry.set_dependency(dummy_dep, value1, Scope.REQUEST, "user_1")
-    registry.set_dependency(dummy_dep, value2, Scope.REQUEST, "user_2")
+    registry.set_dependency(dependency, value1, "user_1")
+    registry.set_dependency(dependency, value2, "user_2")
 
-    assert registry.get_dependency(dummy_dep, Scope.REQUEST, "user_1") == value1
-    assert registry.get_dependency(dummy_dep, Scope.REQUEST, "user_2") == value2
+    assert registry.get_dependency(dependency, "user_1") == value1
+    assert registry.get_dependency(dependency, "user_2") == value2

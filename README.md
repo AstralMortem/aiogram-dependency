@@ -34,7 +34,7 @@ import asyncio
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message
 
-from aiogram_dependency import Depends, DependencyMiddleware, Scope
+from aiogram_dependency import Depends, setup_dependency, Scope
 
 # Define your dependencies
 class DatabaseConnection:
@@ -73,16 +73,16 @@ async def profile_handler(
     profile = await user_service.get_user_profile(message.from_user.id)
     await message.answer(f"Your profile: {profile}")
 
-# Setup bot
+# Setup bot (ORDER MATER!)
 async def main():
     bot = Bot(token="YOUR_BOT_TOKEN")
     dp = Dispatcher()
     
-    # Register dependency injection middleware
-    dp.message.middleware(DependencyMiddleware())
-    
     # Register handlers
     dp.message.register(profile_handler, F.text == "/profile")
+
+    # Register dependency injection 
+    setup_dependency(dp)
     
     await dp.start_polling(bot)
 
@@ -101,7 +101,7 @@ async def get_database() -> DatabaseConnection:
 
 async def handler(
     message: Message,
-    db: DatabaseConnection = Depends(get_database, scope=DependencyScope.SINGLETON)
+    db: DatabaseConnection = Depends(get_database, scope=Scope.SINGLETON)
 ):
     # Same database instance for all users
     pass
@@ -116,7 +116,7 @@ async def get_user_service() -> UserService:
 
 async def handler(
     message: Message,
-    service: UserService = Depends(get_user_service, scope=DependencyScope.REQUEST)
+    service: UserService = Depends(get_user_service, scope=Scope.REQUEST)
 ):
     # Same service instance for this user, different for other users
     pass
@@ -131,7 +131,7 @@ async def get_timestamp() -> float:
 
 async def handler(
     message: Message,
-    timestamp: float = Depends(get_timestamp, scope=DependencyScope.TRANSIENT)
+    timestamp: float = Depends(get_timestamp, scope=Scope.TRANSIENT)
 ):
     # New timestamp every time
     pass
@@ -223,16 +223,18 @@ For advanced use cases, you can customize the dependency system:
 ```python
 from aiogram_dependency.registry import DependencyRegistry
 from aiogram_dependency.resolver import DependencyResolver
-from aiogram_dependency import DependencyMiddleware
+from aiogram_dependency.middleware import DependencyMiddleware
+from aiogram_dependency import Scope
 
 # Create custom registry
 registry = DependencyRegistry()
 
+db_dep = Depends(get_database, scope=Scope.SINGLETON)
+
 # Pre-populate with some dependencies
 registry.set_dependency(
-    get_database, 
+    db_dep,
     DatabaseConnection("custom://connection"),
-    DependencyScope.SINGLETON,
     "global"
 )
 

@@ -23,6 +23,8 @@ pytest-asyncio = "^1.1.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.12.4"
+sqlalchemy = "^2.0.42"
+aiosqlite = "^0.21.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

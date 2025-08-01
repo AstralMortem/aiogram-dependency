@@ -19,7 +19,6 @@ async def test_resolve_simple_dependency(resolver, mock_message, mock_data):
         resolved = await resolver.resolve_dependencies(
             mock_message, mock_data, exit_stack
         )
-    print(resolved)
     assert resolved["service"] == "test_service"
 
 
@@ -39,6 +38,7 @@ async def test_resolve_nested_dependencies(resolver, mock_message, mock_data):
 
     # Inject callable to data handler.
     setattr(mock_data["handler"], "callback", test_handler)
+
     async with AsyncExitStack() as exit_stack:
         resolved = await resolver.resolve_dependencies(
             mock_message, mock_data, exit_stack
@@ -158,10 +158,10 @@ async def test_dependency_no_caching_transient(resolver, mock_message, mock_data
     async with AsyncExitStack() as exit_stack:
         # Resolve twice
         resolved1 = await resolver.resolve_dependencies(
-            mock_message, mock_data, exit_stack
+            mock_message, mock_data.copy(), exit_stack
         )
         resolved2 = await resolver.resolve_dependencies(
-            mock_message, mock_data, exit_stack
+            mock_message, mock_data.copy(), exit_stack
         )
 
     # Should be called twice (no caching)
