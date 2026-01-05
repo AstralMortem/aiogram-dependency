@@ -5,14 +5,14 @@ A FastAPI-style dependency injection system for aiogram Telegram bots. This libr
 [![PyPI Downloads](https://static.pepy.tech/badge/aiogram-dependency)](https://pepy.tech/projects/aiogram-dependency)
 ## Features
 
-- 🚀 **FastAPI-style syntax** - Familiar `Depends()` decorator
-- 🔄 **Multiple dependency scopes** - Singleton, Request, and Transient
-- 🏗️ **Nested dependencies** - Dependencies can depend on other dependencies
-- ⚡ **Async support** - Both sync and async dependency functions
-- 🛡️ **Circular dependency detection** - Prevents infinite loops
-- 🧪 **Type-safe** - Full type hints support
-- 💾 **Smart caching** - Efficient resource management
-
+- **FastAPI-style syntax** - Familiar `Depends()` decorator
+- **Multiple dependency scopes** - Singleton, Request, and Transient
+- **Nested dependencies** - Dependencies can depend on other dependencies
+- **Async support** - Both sync and async dependency functions
+- **Circular dependency detection** - Prevents infinite loops
+- **Type-safe** - Full type hints support
+- **Smart caching** - Efficient resource management
+- **FastAPI Support** - Can use fastapi Depends instead default one
 ## Installation
 
 ```bash
@@ -138,6 +138,9 @@ async def handler(
 ```
 
 ## Advanced Usage
+
+### FastAPI
+You can use FastAPI Depends to remove dupplication if you use fastapi as backend server
 
 ### Annotated
 
