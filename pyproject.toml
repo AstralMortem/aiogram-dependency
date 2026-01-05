@@ -29,6 +29,7 @@ asyncio_mode = "auto"
 [dependency-groups]
 dev = [
     "aiosqlite>=0.22.1",
+    "fastapi>=0.128.0",
     "ruff>=0.14.10",
     "sqlalchemy>=2.0.45",
 ]

@@ -4,7 +4,12 @@ import asyncio
 import inspect
 from typing import Annotated, Any, AsyncGenerator, Callable, Dict, ParamSpec, TypeVar, ContextManager, get_args, get_origin
 
-from aiogram_dependency.dependency import Dependency
+from aiogram_dependency.dependency import Dependency, Scope
+
+try:
+    from fastapi.params import Depends as FastAPIDependency
+except ImportError:
+    FastAPIDependency = None
 
 _T = TypeVar("_T")
 _P = ParamSpec("_P")
@@ -63,11 +68,32 @@ def extract_handler_signature(data: Dict[str, Any]) -> inspect.Signature:
         return inspect.signature(getattr(handler, "callback"))
     raise ValueError("Callable not found")
 
+def _extract_fastapi_scope(dependency: FastAPIDependency):
+    if dependency.scope == "request":
+        return Scope.REQUEST
+    if dependency.scope == "function":
+        return Scope.TRANSIENT
+    if dependency.use_cache:
+        return Scope.SINGLETON
+    return Scope.REQUEST
+
+def _as_fastapi_dependency(obj: Any):
+    if FastAPIDependency is not None and isinstance(obj, FastAPIDependency):
+        return Dependency(
+            dependency=obj.dependency,
+            scope=_extract_fastapi_scope(obj)
+        )
+    return False
+
+
 def extract_dependency(param: inspect.Parameter) -> Dependency | bool:
     if get_origin(param.annotation) is Annotated:
         for meta in get_args(param.annotation)[1:]:
             if isinstance(meta, Dependency):
                 return meta
+            else:
+                return _as_fastapi_dependency(meta)
     elif isinstance(param.default, Dependency):
         return param.default
-    return False
+    else:
+        return _as_fastapi_dependency(param.default)

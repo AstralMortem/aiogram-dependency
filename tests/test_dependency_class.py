@@ -1,6 +1,5 @@
 from aiogram_dependency.dependency import Dependency, Depends, Scope
 
-
 def test_depends_func():
     def dummy_func():
         pass
