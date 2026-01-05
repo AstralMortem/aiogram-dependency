@@ -7,7 +7,15 @@ from typing import (
 from .dependency import Dependency
 from .registry import DependencyRegistry
 from aiogram.types import TelegramObject
-from aiogram_dependency.utils import extract_handler_signature, extract_dependency, is_async_gen_callable, is_coroutine_callable, is_gen_callable, solve_generator, run_in_threadpool
+from aiogram_dependency.utils import (
+    extract_handler_signature,
+    extract_dependency,
+    is_async_gen_callable,
+    is_coroutine_callable,
+    is_gen_callable,
+    solve_generator,
+    run_in_threadpool,
+)
 
 
 class DependencyResolver:
@@ -31,7 +39,7 @@ class DependencyResolver:
                 if dependency.dependency is None:
                     resolved_deps[param_name] = None
                     continue
-                
+
                 if dependency.dependency in self._resolving:
                     raise ValueError(
                         f"Circular dependency detected: {dependency.dependency.__name__}"
@@ -46,16 +54,23 @@ class DependencyResolver:
                     exit_stack,
                 )
                 resolved_deps[param_name] = resolved_value
-                
+
         data.update(resolved_deps)
         return data
 
-
-    async def _resolve_single_dep(self, dependency: Dependency, event: TelegramObject, data: Dict[str, Any], cache_key: str, resolved_deps: Dict[str, Any], exit_stack: AsyncExitStack):
+    async def _resolve_single_dep(
+        self,
+        dependency: Dependency,
+        event: TelegramObject,
+        data: Dict[str, Any],
+        cache_key: str,
+        resolved_deps: Dict[str, Any],
+        exit_stack: AsyncExitStack,
+    ):
         cached_value = self.registry.get_dependency(dependency, cache_key)
         if cached_value is not None:
             return cached_value
-        
+
         dep_callable = dependency.dependency
         self._resolving.add(dep_callable)
 
@@ -73,12 +88,14 @@ class DependencyResolver:
                     dependency_kwargs[param_name] = data[param_name]
                 elif param_name in resolved_deps:
                     dependency_kwargs[param_name] = resolved_deps[param_name]
-                
+
                 # Check if param is nested dependency and try resolve it
                 nested_dependency = extract_dependency(param)
                 if nested_dependency:
                     nested_dependencies.add(nested_dependency.dependency)
-                    resolved_nested = await self._resolve_single_dep(nested_dependency, event, data, cache_key, resolved_deps, exit_stack)
+                    resolved_nested = await self._resolve_single_dep(
+                        nested_dependency, event, data, cache_key, resolved_deps, exit_stack
+                    )
                     dependency_kwargs[param_name] = resolved_nested
 
             if is_gen_callable(dep_callable) or is_async_gen_callable(dep_callable):

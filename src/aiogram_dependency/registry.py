@@ -26,7 +26,7 @@ class DependencyRegistry:
             return None
 
     def set_dependency(self, dependency: Dependency, value: Any, cache_key: str):
-        dep_key= hash(dependency.dependency)
+        dep_key = hash(dependency.dependency)
         if dependency.scope == Scope.SINGLETON:
             self._singleton_cache[dep_key] = value
         elif dependency.scope == Scope.REQUEST:

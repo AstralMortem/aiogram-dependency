@@ -9,9 +9,7 @@ class Scope(StrEnum):
 
 
 class Dependency:
-    def __init__(
-        self, dependency: Optional[Callable] = None, scope: Scope = Scope.REQUEST
-    ):
+    def __init__(self, dependency: Optional[Callable] = None, scope: Scope = Scope.REQUEST):
         self.dependency = dependency
         self.scope = scope
 
@@ -20,7 +18,5 @@ class Dependency:
         return f"Depends({attr})"
 
 
-def Depends(
-    dependency: Optional[Callable] = None, *, scope: Scope = Scope.REQUEST
-) -> Dependency:
+def Depends(dependency: Optional[Callable] = None, *, scope: Scope = Scope.REQUEST) -> Dependency:
     return Dependency(dependency, scope=scope)

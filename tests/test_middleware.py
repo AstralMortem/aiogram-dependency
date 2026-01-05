@@ -75,9 +75,7 @@ async def test_dependency_types(dependency, middleware, mock_message, mock_data)
 
 
 @pytest.mark.asyncio
-async def test_middleware_handles_handler_exception(
-    middleware, mock_message, mock_data
-):
+async def test_middleware_handles_handler_exception(middleware, mock_message, mock_data):
     def get_test_service():
         return "service"
 
@@ -95,12 +93,8 @@ async def test_middleware_handles_handler_exception(
 
 
 @pytest.mark.asyncio
-async def test_middleware_skips_non_dependency_params(
-    middleware, mock_message, mock_data
-):
-    async def test_handler(
-        event: Message, normal_param: str = "default_value", data: dict = None
-    ):
+async def test_middleware_skips_non_dependency_params(middleware, mock_message, mock_data):
+    async def test_handler(event: Message, normal_param: str = "default_value", data: dict = None):
         return "result"
 
     # Inject callable to data handler.
