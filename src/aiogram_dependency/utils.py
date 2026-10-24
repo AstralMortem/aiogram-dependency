@@ -85,12 +85,9 @@ def extract_handler_signature(data: Dict[str, Any]) -> inspect.Signature:
 
 
 def _extract_fastapi_scope(dependency: FastAPIDependency):
-    if dependency.scope == "request":
-        return Scope.REQUEST
-    if dependency.scope == "function":
+    # FastAPI's use_cache means "once per request", never a global singleton
+    if dependency.scope == "function" or not dependency.use_cache:
         return Scope.TRANSIENT
-    if dependency.use_cache:
-        return Scope.SINGLETON
     return Scope.REQUEST
 
 

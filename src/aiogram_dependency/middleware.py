@@ -20,6 +20,4 @@ class DependencyMiddleware(BaseMiddleware):
         # Resolve dependencies and update data dict
         async with AsyncExitStack() as exit_stack:
             data = await self.resolver.resolve_dependencies(event, data.copy(), exit_stack)
-            # Reset request registry cache after each request to enshure that some connections return to pool (for example sqlalchemy session)
-            self.registry.reset_request_cache()
             return await handler(event, data)

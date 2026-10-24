@@ -25,11 +25,7 @@ def setup_dependency(
         observer: TelegramEventObserver = getattr(dispatcher, allowed_update)
         observer.middleware(DependencyMiddleware(registry))
 
-    # Add shutdown hooks to properly close openend context in singletone cache
-    async def on_shutdown():
-        registry.reset_request_cache()
-        registry.reset_singletone_cache()
-
-    dispatcher.shutdown.register(on_shutdown)
+    # Close singleton generators (engines, pools) on shutdown
+    dispatcher.shutdown.register(registry.close)
 
     return registry
