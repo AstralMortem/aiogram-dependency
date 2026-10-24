@@ -88,7 +88,11 @@ class DependencyResolver:
             dependency_kwargs = {}
             for param_name, param in dependency_signature.parameters.items():
                 # Set default values to handler
-                if param_name in ["event", "message", "callback"]:
+                if param_name in ["event", "message", "callback"] or (
+                    inspect.isclass(param.annotation)
+                    and issubclass(param.annotation, TelegramObject)
+                    and isinstance(event, param.annotation)
+                ):
                     dependency_kwargs[param_name] = event
                 elif param_name == "data":
                     dependency_kwargs[param_name] = data

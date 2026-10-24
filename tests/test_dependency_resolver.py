@@ -1,7 +1,9 @@
 import asyncio
+from typing import Annotated
 import pytest
 from aiogram.types import Message
 from aiogram_dependency.dependency import Depends, Scope
+from aiogram_dependency.utils import run_in_threadpool
 from contextlib import AsyncExitStack
 
 
@@ -182,3 +184,23 @@ async def test_dependency_no_caching_transient(resolver, mock_message, mock_data
     assert call_count == 2
     assert resolved1["service"] == "transient_1"
     assert resolved2["service"] == "transient_2"
+
+
+@pytest.mark.asyncio
+async def test_annotated_with_extra_metadata(resolver, mock_message, mock_data):
+    def get_service():
+        return "service"
+
+    async def test_handler(event: Message, service: Annotated[str, "docs", Depends(get_service)]):
+        return service
+
+    setattr(mock_data["handler"], "callback", test_handler)
+
+    async with AsyncExitStack() as exit_stack:
+        resolved = await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
+    assert resolved["service"] == "service"
+
+
+@pytest.mark.asyncio
+async def test_run_in_threadpool_positional_args():
+    assert await run_in_threadpool(lambda a, b=0: a + b, 1, b=2) == 3

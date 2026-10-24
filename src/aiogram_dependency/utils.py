@@ -1,5 +1,4 @@
 from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
-import functools
 import asyncio
 import inspect
 from typing import (
@@ -27,7 +26,6 @@ _P = ParamSpec("_P")
 
 
 async def run_in_threadpool(func: Callable[_P, _T], *args: _P.args, **kwargs: _P.kwargs) -> _T:
-    func = functools.partial(func, *args, **kwargs)
     return await asyncio.to_thread(func, *args, **kwargs)
 
 
@@ -102,8 +100,9 @@ def extract_dependency(param: inspect.Parameter) -> Dependency | bool:
         for meta in get_args(param.annotation)[1:]:
             if isinstance(meta, Dependency):
                 return meta
-            else:
-                return _as_fastapi_dependency(meta)
+            if fastapi_dependency := _as_fastapi_dependency(meta):
+                return fastapi_dependency
+        return False
     elif isinstance(param.default, Dependency):
         return param.default
     else:

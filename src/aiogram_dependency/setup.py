@@ -21,7 +21,9 @@ def setup_dependency(
     # Create dependency registry
     registry = registry or DependencyRegistry()
 
-    for allowed_update in allowed_updates or dispatcher.resolve_used_update_types():
+    # Default to every event observer so routers included after setup are covered too
+    default_updates = [name for name in dispatcher.observers if name not in ("update", "error")]
+    for allowed_update in allowed_updates or default_updates:
         observer: TelegramEventObserver = getattr(dispatcher, allowed_update)
         observer.middleware(DependencyMiddleware(registry))
 
