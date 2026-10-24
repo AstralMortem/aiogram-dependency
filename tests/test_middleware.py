@@ -60,18 +60,16 @@ async def get_async_contextmanager():
 )
 @pytest.mark.asyncio
 async def test_dependency_types(dependency, middleware, mock_message, mock_data):
-    # Create handler mock
-    handler = AsyncMock()
-
     async def test_handler(event: Message, service: str = Depends(dependency)):
-        await handler(event, service)
         return service
 
     # Inject callable to data handler.
     setattr(mock_data["handler"], "callback", test_handler)
 
-    result = await middleware(test_handler, mock_message, mock_data)
-    assert result["service"] == "injected_service"
+    # aiogram calls the next handler as handler(event, data)
+    handler = AsyncMock(side_effect=lambda event, data: data["service"])
+    result = await middleware(handler, mock_message, mock_data)
+    assert result == "injected_service"
 
 
 @pytest.mark.asyncio

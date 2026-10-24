@@ -140,7 +140,7 @@ async def handler(
 ## Advanced Usage
 
 ### FastAPI
-You can use FastAPI Depends to remove dupplication if you use fastapi as backend server
+You can use FastAPI Depends to remove duplication if you use fastapi as backend server. Install with `pip install aiogram-dependency[fastapi]`.
 
 ### Annotated
 

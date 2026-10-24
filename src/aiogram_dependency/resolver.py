@@ -12,6 +12,7 @@ from aiogram.types import TelegramObject
 from aiogram_dependency.utils import (
     extract_handler_signature,
     extract_dependency,
+    get_signature,
     is_async_gen_callable,
     is_coroutine_callable,
     is_gen_callable,
@@ -84,7 +85,7 @@ class DependencyResolver:
         resolving.add(dep_callable)
 
         try:
-            dependency_signature = inspect.signature(dep_callable)
+            dependency_signature = get_signature(dep_callable)
             dependency_kwargs = {}
             for param_name, param in dependency_signature.parameters.items():
                 # Set default values to handler

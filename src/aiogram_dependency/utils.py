@@ -1,5 +1,6 @@
 from contextlib import AsyncExitStack, asynccontextmanager, contextmanager
 import asyncio
+import functools
 import inspect
 from typing import (
     Annotated,
@@ -75,34 +76,41 @@ async def solve_generator(
     return await stack.enter_async_context(cm)
 
 
+@functools.cache
+def get_signature(call: Callable[..., Any]) -> inspect.Signature:
+    # Handlers and dependencies are fixed at import time, so inspect each only once
+    return inspect.signature(call)
+
+
 def extract_handler_signature(data: Dict[str, Any]) -> inspect.Signature:
     handler = data.get("handler")
     if hasattr(handler, "callback"):
-        return inspect.signature(getattr(handler, "callback"))
+        return get_signature(getattr(handler, "callback"))
     raise ValueError("Callable not found")
 
 
 def _extract_fastapi_scope(dependency: FastAPIDependency):
     # FastAPI's use_cache means "once per request", never a global singleton
-    if dependency.scope == "function" or not dependency.use_cache:
+    # `scope` only exists in newer FastAPI releases
+    if getattr(dependency, "scope", None) == "function" or not dependency.use_cache:
         return Scope.TRANSIENT
     return Scope.REQUEST
 
 
-def _as_fastapi_dependency(obj: Any):
+def _as_fastapi_dependency(obj: Any) -> Dependency | None:
     if FastAPIDependency is not None and isinstance(obj, FastAPIDependency):
         return Dependency(dependency=obj.dependency, scope=_extract_fastapi_scope(obj))
-    return False
+    return None
 
 
-def extract_dependency(param: inspect.Parameter) -> Dependency | bool:
+def extract_dependency(param: inspect.Parameter) -> Dependency | None:
     if get_origin(param.annotation) is Annotated:
         for meta in get_args(param.annotation)[1:]:
             if isinstance(meta, Dependency):
                 return meta
             if fastapi_dependency := _as_fastapi_dependency(meta):
                 return fastapi_dependency
-        return False
+        return None
     elif isinstance(param.default, Dependency):
         return param.default
     else:

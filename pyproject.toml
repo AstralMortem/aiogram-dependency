@@ -12,6 +12,9 @@ dependencies = [
 
 dynamic = ["version"]
 
+[project.optional-dependencies]
+fastapi = ["fastapi>=0.95.0"]
+
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
