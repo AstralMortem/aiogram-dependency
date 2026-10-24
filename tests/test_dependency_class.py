@@ -15,3 +15,11 @@ def test_depends_func():
 def test_depends_default_scope():
     dep = Depends(lambda x: True)
     assert dep.scope == Scope.REQUEST
+
+
+def test_depends_repr():
+    def get_service():
+        pass
+
+    assert repr(Depends(get_service)) == "Depends(get_service)"
+    assert repr(Depends()) == "Depends(NoneType)"

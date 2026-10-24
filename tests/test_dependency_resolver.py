@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from typing import Annotated
 import pytest
 from aiogram.types import Message
@@ -204,3 +205,134 @@ async def test_annotated_with_extra_metadata(resolver, mock_message, mock_data):
 @pytest.mark.asyncio
 async def test_run_in_threadpool_positional_args():
     assert await run_in_threadpool(lambda a, b=0: a + b, 1, b=2) == 3
+
+
+@pytest.mark.asyncio
+async def test_empty_depends_resolves_to_none(resolver, mock_message, mock_data):
+    async def test_handler(event: Message, service: str = Depends()):
+        return service
+
+    setattr(mock_data["handler"], "callback", test_handler)
+
+    async with AsyncExitStack() as exit_stack:
+        resolved = await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
+    assert resolved["service"] is None
+
+
+@pytest.mark.asyncio
+async def test_dependency_receives_event_data_and_sibling_params(resolver, mock_message, mock_data):
+    def get_settings():
+        return "settings"
+
+    def get_service(message, data: dict, bot, settings):
+        # event by name, whole data dict, a data key, and an earlier handler param
+        return message, data, bot, settings
+
+    async def test_handler(
+        event: Message,
+        settings: str = Depends(get_settings),
+        service: tuple = Depends(get_service),
+    ):
+        return service
+
+    setattr(mock_data["handler"], "callback", test_handler)
+
+    async with AsyncExitStack() as exit_stack:
+        resolved = await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
+
+    message, data, bot, settings = resolved["service"]
+    assert message is mock_message
+    assert data is mock_data
+    assert bot is mock_data["bot"]
+    assert settings == "settings"
+
+
+@pytest.mark.asyncio
+async def test_class_and_callable_instance_dependencies(resolver, mock_message, mock_data):
+    class UserService:
+        def __init__(self, event: Message):
+            self.event = event
+
+    class AsyncFactory:
+        async def __call__(self):
+            return "from_async_call"
+
+    factory = AsyncFactory()
+
+    async def test_handler(
+        event: Message,
+        service: UserService = Depends(UserService),
+        value: str = Depends(factory),
+    ):
+        return service
+
+    setattr(mock_data["handler"], "callback", test_handler)
+
+    async with AsyncExitStack() as exit_stack:
+        resolved = await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
+
+    assert isinstance(resolved["service"], UserService)
+    assert resolved["service"].event is mock_message
+    assert resolved["value"] == "from_async_call"
+
+
+@pytest.mark.asyncio
+async def test_sync_dependency_runs_in_thread(resolver, mock_message, mock_data):
+    def get_thread():
+        return threading.current_thread()
+
+    async def test_handler(event: Message, thread=Depends(get_thread)):
+        return thread
+
+    setattr(mock_data["handler"], "callback", test_handler)
+
+    async with AsyncExitStack() as exit_stack:
+        resolved = await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
+    assert resolved["thread"] is not threading.main_thread()
+
+
+@pytest.mark.asyncio
+async def test_failing_dependency_closes_already_opened_ones(resolver, mock_message, mock_data):
+    events = []
+
+    async def get_session():
+        try:
+            yield "session"
+        finally:
+            events.append("session closed")
+
+    def get_broken():
+        raise RuntimeError("broken")
+
+    async def test_handler(
+        event: Message,
+        session: str = Depends(get_session),
+        broken: str = Depends(get_broken),
+    ):
+        return session
+
+    setattr(mock_data["handler"], "callback", test_handler)
+
+    with pytest.raises(RuntimeError, match="broken"):
+        async with AsyncExitStack() as exit_stack:
+            await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
+    assert events == ["session closed"]
+
+
+@pytest.mark.asyncio
+async def test_annotated_without_dependency_is_ignored(resolver, mock_message, mock_data):
+    async def test_handler(event: Message, text: Annotated[str, "docs"] = "default"):
+        return text
+
+    setattr(mock_data["handler"], "callback", test_handler)
+
+    async with AsyncExitStack() as exit_stack:
+        resolved = await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
+    assert "text" not in resolved
+
+
+@pytest.mark.asyncio
+async def test_missing_handler_raises(resolver, mock_message):
+    async with AsyncExitStack() as exit_stack:
+        with pytest.raises(ValueError, match="Callable not found"):
+            await resolver.resolve_dependencies(mock_message, {}, exit_stack)
