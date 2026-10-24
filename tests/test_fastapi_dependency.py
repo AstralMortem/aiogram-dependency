@@ -1,4 +1,5 @@
 import pytest
+from typing import Annotated
 from aiogram.types import Message
 from contextlib import AsyncExitStack
 from fastapi import Depends
@@ -42,31 +43,31 @@ async def test_resolve_nested_fastapi_dependencies(resolver, mock_message, mock_
 
 
 @pytest.mark.asyncio
-async def test_fastapi_dependency_caching_singleton(resolver, mock_message, mock_data):
+async def test_fastapi_use_cache_is_per_request_not_singleton(resolver, mock_message, mock_data):
     call_count = 0
 
-    def get_singleton_service():
+    def get_db():
         nonlocal call_count
         call_count += 1
-        return f"singleton_{call_count}"
+        return f"db_{call_count}"
 
     async def test_handler(
         event: Message,
-        service: str = Depends(get_singleton_service, use_cache=True),
+        db: str = Depends(get_db, use_cache=True),
     ):
-        return service
+        return db
 
     # Inject callable to data handler.
     setattr(mock_data["handler"], "callback", test_handler)
 
     async with AsyncExitStack() as exit_stack:
-        # Resolve twice
-        resolved1 = await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
-        resolved2 = await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
+        resolved1 = await resolver.resolve_dependencies(mock_message, mock_data.copy(), exit_stack)
+        resolved2 = await resolver.resolve_dependencies(mock_message, mock_data.copy(), exit_stack)
 
-    # Should be called only once due to singleton caching
-    assert call_count == 1
-    assert resolved1["service"] == resolved2["service"] == "singleton_1"
+    # FastAPI's use_cache means once per request, so each request gets its own
+    assert call_count == 2
+    assert resolved1["db"] == "db_1"
+    assert resolved2["db"] == "db_2"
 
 
 @pytest.mark.asyncio
@@ -78,8 +79,13 @@ async def test_fastapi_dependency_caching_request(resolver, mock_message, mock_d
         call_count += 1
         return f"request_{call_count}"
 
+    def get_consumer(service: str = Depends(get_request_service, scope="request")):
+        return service
+
     async def test_handler(
-        event: Message, service: str = Depends(get_request_service, scope="request")
+        event: Message,
+        service: str = Depends(get_request_service, scope="request"),
+        consumer: str = Depends(get_consumer),
     ):
         return service
 
@@ -87,13 +93,11 @@ async def test_fastapi_dependency_caching_request(resolver, mock_message, mock_d
     setattr(mock_data["handler"], "callback", test_handler)
 
     async with AsyncExitStack() as exit_stack:
-        # Resolve twice with same message (same cache key)
-        resolved1 = await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
-        resolved2 = await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
+        resolved = await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
 
-    # Should be called only once due to request caching
+    # Should be called only once within a request
     assert call_count == 1
-    assert resolved1["service"] == resolved2["service"] == "request_1"
+    assert resolved["service"] == resolved["consumer"] == "request_1"
 
 
 @pytest.mark.asyncio
@@ -123,3 +127,45 @@ async def test_fastapi_dependency_no_caching_transient(resolver, mock_message, m
     assert call_count == 2
     assert resolved1["service"] == "transient_1"
     assert resolved2["service"] == "transient_2"
+
+
+@pytest.mark.asyncio
+async def test_fastapi_annotated_dependency(resolver, mock_message, mock_data):
+    def get_service():
+        return "service"
+
+    async def test_handler(event: Message, service: Annotated[str, Depends(get_service)]):
+        return service
+
+    setattr(mock_data["handler"], "callback", test_handler)
+
+    async with AsyncExitStack() as exit_stack:
+        resolved = await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
+    assert resolved["service"] == "service"
+
+
+@pytest.mark.asyncio
+async def test_fastapi_use_cache_false_is_transient(resolver, mock_message, mock_data):
+    call_count = 0
+
+    def get_service():
+        nonlocal call_count
+        call_count += 1
+        return f"service_{call_count}"
+
+    def get_consumer(service: str = Depends(get_service, use_cache=False)):
+        return service
+
+    async def test_handler(
+        event: Message,
+        service: str = Depends(get_service, use_cache=False),
+        consumer: str = Depends(get_consumer),
+    ):
+        return service
+
+    setattr(mock_data["handler"], "callback", test_handler)
+
+    async with AsyncExitStack() as exit_stack:
+        resolved = await resolver.resolve_dependencies(mock_message, mock_data, exit_stack)
+    assert call_count == 2
+    assert resolved["service"] != resolved["consumer"]

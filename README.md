@@ -108,7 +108,7 @@ async def handler(
 ```
 
 ### Request (Default)
-Created once per user/chat and cached for subsequent calls in the same context.
+Created once per update and shared by every handler parameter and nested dependency that asks for it. Generator dependencies are closed when the update is processed.
 
 ```python
 async def get_user_service() -> UserService:
@@ -118,7 +118,7 @@ async def handler(
     message: Message,
     service: UserService = Depends(get_user_service, scope=Scope.REQUEST)
 ):
-    # Same service instance for this user, different for other users
+    # Same service instance within this update, new one for the next update
     pass
 ```
 
@@ -140,7 +140,7 @@ async def handler(
 ## Advanced Usage
 
 ### FastAPI
-You can use FastAPI Depends to remove dupplication if you use fastapi as backend server
+You can use FastAPI Depends to remove duplication if you use fastapi as backend server. Install with `pip install aiogram-dependency[fastapi]`.
 
 ### Annotated
 

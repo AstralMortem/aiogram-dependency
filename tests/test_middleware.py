@@ -60,18 +60,16 @@ async def get_async_contextmanager():
 )
 @pytest.mark.asyncio
 async def test_dependency_types(dependency, middleware, mock_message, mock_data):
-    # Create handler mock
-    handler = AsyncMock()
-
     async def test_handler(event: Message, service: str = Depends(dependency)):
-        await handler(event, service)
         return service
 
     # Inject callable to data handler.
     setattr(mock_data["handler"], "callback", test_handler)
 
-    result = await middleware(test_handler, mock_message, mock_data)
-    assert result["service"] == "injected_service"
+    # aiogram calls the next handler as handler(event, data)
+    handler = AsyncMock(side_effect=lambda event, data: data["service"])
+    result = await middleware(handler, mock_message, mock_data)
+    assert result == "injected_service"
 
 
 @pytest.mark.asyncio
@@ -106,3 +104,42 @@ async def test_middleware_skips_non_dependency_params(middleware, mock_message, 
     # No dependencies should be added
     assert mock_data == original_data
     assert result == "result"
+
+
+@pytest.mark.parametrize("is_async", (False, True))
+@pytest.mark.asyncio
+async def test_generator_sees_handler_exception(is_async, middleware, mock_message, mock_data):
+    events = []
+
+    def get_sync_resource():
+        try:
+            yield "resource"
+        except ValueError:
+            events.append("rolled back")
+            raise
+        finally:
+            events.append("closed")
+
+    async def get_async_resource():
+        try:
+            yield "resource"
+        except ValueError:
+            events.append("rolled back")
+            raise
+        finally:
+            events.append("closed")
+
+    dependency = get_async_resource if is_async else get_sync_resource
+
+    async def test_handler(event: Message, resource: str = Depends(dependency)):
+        return resource
+
+    setattr(mock_data["handler"], "callback", test_handler)
+
+    async def failing_handler(event, data):
+        events.append(f"handler using {data['resource']}")
+        raise ValueError("Handler failed")
+
+    with pytest.raises(ValueError, match="Handler failed"):
+        await middleware(failing_handler, mock_message, mock_data)
+    assert events == ["handler using resource", "rolled back", "closed"]
